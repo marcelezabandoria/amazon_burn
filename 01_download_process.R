@@ -52,7 +52,44 @@ for (f in seq_along(file_list$id)) {
 ## Read MODIS archive ----
 mod_arch <- read_csv("data/fire_archive_M6_168580.csv")
 
+### Clean and organize table ----
+mod_arch <-
+  mod_arch %>% 
+  filter(type == 0, confidence >= 80) %>%
+  select(-c(confidence, version, type)) %>%
+  rename(bright_t21 = brightness) %>%
+  pivot_longer(
+    cols = c(bright_t21, bright_t31), 
+    names_to = "bright_band",
+    values_to = "brightness"
+  )
+
 ## Read VIIRS archive ----
 virs_arch <- read_csv("data/fire_archive_V1_168582.csv")
 
+### Clean and organize table ----
+virs_arch <-
+  virs_arch %>%
+  filter(type == 0, confidence == "h") %>%
+  select(-c(confidence, version, type)) %>%
+  pivot_longer(
+    cols = c(bright_ti4, bright_ti5), 
+    names_to = "bright_band",
+    values_to = "brightness"
+  )
 
+## Merge tables ----
+full_arch <- 
+  mod_arch %>%
+  bind_rows(virs_arch)
+
+# PLOT DATA ----
+
+full_arch %>%
+  group_by(satellite, acq_date) %>%
+  summarise(burn_count = n(), .groups = "drop") %>%
+  ggplot() +
+  facet_wrap( ~ satellite, ncol = 1) +
+  geom_line(
+    aes(x = acq_date, y = burn_count)
+  )
